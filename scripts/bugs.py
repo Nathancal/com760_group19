@@ -104,7 +104,7 @@ class Bugs():
         return resp
 
     def isclose(self, x, y, rel_tol):
-        if abs(x-y) >= rel_tol:
+        if abs(x-y) <= rel_tol:
             return True
         else:
             return False
