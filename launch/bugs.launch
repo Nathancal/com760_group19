@@ -6,8 +6,8 @@
     <arg name="initial_x" default="0" />
     <arg name="initial_y" default="8" />
     <arg name="initial_z" default="0" />
-    <arg name="des_x" default="4" />
-    <arg name="des_y" default="8" />
+    <arg name="des_x" default="0" />
+    <arg name="des_y" default="-4" />
     <param name="log" value="$(arg log)" />
     <param name="algo" value="$(arg algo)" />
     <param name="initial_x" value="$(arg initial_x)" />
