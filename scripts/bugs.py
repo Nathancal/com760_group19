@@ -120,7 +120,7 @@ class Bugs():
             rospy.loginfo('Position and goal reset')
             return True
         elif self.isclose(self.goal.x, self.position.x, rel_tol=0.3) \
-                and math.isclose(self.goal.y, self.position.y, rel_tol=0.3) \
+                and self.isclose(self.goal.y, self.position.y, rel_tol=0.3) \
                     and self.state_time_count > 5 and self.target_count == 1:
             self.home_reached = True
             rospy.loginfo('Looks like we made it')
