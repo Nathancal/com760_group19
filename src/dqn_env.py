@@ -81,46 +81,43 @@ class Env():
     
 
     def setReward(self, state, done, action):
+        yaw_reward = []
         obstacle_min_range = state[-2]
         current_distance = state[-3]
         heading = state[-4]
 
-        yaw_reward = self.calculate_yaw_reward(heading)
+        rospy.logdebug("state")
+
+        rospy.logdebug(state)
+
+        for i in range(5):
+            angle = -pi / 4 + heading + (pi / 8 * i) + pi / 2
+            tr = 1 - 4 * math.fabs(0.5 - math.modf(0.25 + 0.5 * angle % (2 * math.pi) / math.pi)[0])
+            yaw_reward.append(tr)
 
         distance_rate = 2 ** (current_distance / self.goal_distance)
 
-        ob_reward = -5 if obstacle_min_range < 0.5 else 0
+        if obstacle_min_range < 0.5:
+            ob_reward = -5
+        else:
+            ob_reward = 0
 
-        reward = (yaw_reward[action] * 5 * distance_rate) + ob_reward
+        reward = ((round(yaw_reward[action] * 5, 2)) * distance_rate) + ob_reward
 
         if done:
+            rospy.loginfo("Hits wall..")
             reward = -500
-            self.handle_collision()
+            self.pub_cmd_vel.publish(Twist())
 
         if self.get_goalbox:
+            rospy.loginfo("Goal!!")
             reward = 1000
-            self.handle_goal()
+            self.pub_cmd_vel.publish(Twist())
+            self.goal_x, self.goal_y = self.respawn_goal.getPosition(True, delete=True)
+            self.goal_distance = self.getGoalDistace()
+            self.get_goalbox = False
 
         return reward
-
-    def calculate_yaw_reward(self, heading):
-        yaw_reward = []
-        for i in range(5):
-            angle = -pi / 4 + heading + (pi / 8 * i) + pi / 2
-            tr = 1 - 4 * math.fabs(0.5 - math.modf(0.25 + 0.5 * angle % (2 * pi) / pi)[0])
-            yaw_reward.append(tr)
-        return yaw_reward
-
-    def handle_collision(self):
-        rospy.loginfo("Collision!!")
-        self.pub_cmd_vel.publish(Twist())
-
-    def handle_goal(self):
-        rospy.loginfo("Goal!!")
-        self.pub_cmd_vel.publish(Twist())
-        self.goal_x, self.goal_y = self.respawn_goal.getPosition(True, delete=True)
-        self.goal_distance = self.getGoalDistace()
-        self.get_goalbox = False
 
 
     def step(self, action):
