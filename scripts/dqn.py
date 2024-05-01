@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-#################################################################################
-# Code based on file provided by Robotis https://github.com/ROBOTIS-GIT/turtlebot3_machine_learning/tree/master/turtlebot3_dqn
 
 import rospy
 import os
@@ -17,7 +15,7 @@ from keras.models import Sequential, load_model
 from keras.optimizers import RMSprop
 from keras.layers import Dense, Dropout, Activation
 
-EPISODES = 3000
+EPS = 5000
 
 
 class ReinforceAgent():
@@ -48,11 +46,14 @@ class ReinforceAgent():
         self.updateTargetModel()
 
         if self.load_model:
-            self.model.set_weights(load_model(self.dirPath + str(self.load_episode) + ".h5").get_weights())
+            try:
+                self.model.set_weights(load_model(self.dirPath + str(self.load_episode) + ".h5").get_weights())
 
-            with open(self.dirPath + str(self.load_episode) + '.json') as outfile:
-                param = json.load(outfile)
-                self.epsilon = param.get('epsilon')
+                with open(self.dirPath + str(self.load_episode) + '.json') as outfile:
+                    param = json.load(outfile)
+                    self.epsilon = param.get('epsilon')
+            except Exception as e:
+                rospy.logerr("Error loading model: %s", str(e))
 
     def buildModel(self):
         model = Sequential()
@@ -153,58 +154,63 @@ if __name__ == '__main__':
     global_step = 0
     start_time = time.time()
 
-    for e in range(agent.load_episode + 1, EPISODES):
+    for e in range(agent.load_episode + 1, EPS):
         done = False
         state = env.reset()
         score = 0
-        for t in range(agent.episode_step):
-            action = agent.getAction(state)
+        try:
+            for t in range(agent.episode_step):
+                action = agent.getAction(state)
 
-            next_state, reward, done = env.step(action)
+                next_state, reward, done = env.step(action)
 
-            agent.appendMemory(state, action, reward, next_state, done)
+                agent.appendMemory(state, action, reward, next_state, done)
 
-            if len(agent.memory) >= agent.train_start:
-                if global_step <= agent.target_update:
-                    agent.trainModel()
-                else:
-                    agent.trainModel(True)
+                if len(agent.memory) >= agent.train_start:
+                    if global_step <= agent.target_update:
+                        agent.trainModel()
+                    else:
+                        agent.trainModel(True)
 
-            score += reward
-            state = next_state
-            get_action.data = [action, score, reward]
-            pub_get_action.publish(get_action)
+                score += reward
+                state = next_state
+                get_action.data = [action, score, reward]
+                pub_get_action.publish(get_action)
 
-            if e % 10 == 0:
-                agent.model.save(agent.dirPath + str(e) + '.h5')
-                with open(agent.dirPath + str(e) + '.json', 'w') as outfile:
-                    json.dump(param_dictionary, outfile)
+                if e % 10 == 0:
+                    agent.model.save(agent.dirPath + str(e) + '.h5')
+                    with open(agent.dirPath + str(e) + '.json', 'w') as outfile:
+                        json.dump(param_dictionary, outfile)
 
-            if t >= 500:
-                rospy.loginfo("Time out!!")
-                done = True
+                if t >= 400:
+                    rospy.loginfo("group19Bot took to long..")
+                    done = True
 
-            if done:
-                result.data = [score, np.max(agent.q_value)]
-                pub_result.publish(result)
-                agent.updateTargetModel()
-                scores.append(score)
-                episodes.append(e)
-                m, s = divmod(int(time.time() - start_time), 60)
-                h, m = divmod(m, 60)
+                if done:
+                    result.data = [score, np.max(agent.q_value)]
+                    pub_result.publish(result)
+                    agent.updateTargetModel()
+                    scores.append(score)
+                    episodes.append(e)
+                    m, s = divmod(int(time.time() - start_time), 60)
+                    h, m = divmod(m, 60)
 
-                rospy.loginfo('Ep: %d score: %.2f memory: %d epsilon: %.2f time: %d:%02d:%02d',
-                              e, score, len(agent.memory), agent.epsilon, h, m, s)
-                param_keys = ['epsilon']
-                param_values = [agent.epsilon]
-                param_dictionary = dict(zip(param_keys, param_values))
-                break
+                    rospy.loginfo('Ep: %d score: %.2f memory: %d epsilon: %.2f time: %d:%02d:%02d',
+                                  e, score, len(agent.memory), agent.epsilon, h, m, s)
+                    param_keys = ['epsilon']
+                    param_values = [agent.epsilon]
+                    param_dictionary = dict(zip(param_keys, param_values))
+                    break
 
-            global_step += 1
-            if global_step % agent.target_update == 0:
-                rospy.loginfo("UPDATE TARGET NETWORK")
+                global_step += 1
+                if global_step % agent.target_update == 0:
+                    rospy.loginfo("UPDATE TARGET NETWORK")
 
-        if agent.epsilon > agent.epsilon_min:
+            if agent.epsilon > agent.epsilon_min:
 
-            if e % 2 == 0:
-                agent.epsilon *= agent.epsilon_decay
+                if e % 3 == 0:
+                    agent.epsilon *= agent.epsilon_decay
+
+        except Exception as ex:
+            rospy.logerr("Error in episode {}: {}".format(e, str(ex)))
+            continue

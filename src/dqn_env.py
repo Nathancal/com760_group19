@@ -53,68 +53,74 @@ class Env():
         self.heading = round(heading, 2)
 
     def getState(self, scan):
-        scan_range = []
-        heading = self.heading
-        min_range = 0.18
-        done = False
-
-        for i in range(len(scan.ranges)):
-            if scan.ranges[i] == float('Inf'):
-                scan_range.append(3.5)
-            elif np.isnan(scan.ranges[i]):
-                scan_range.append(0)
-            else:
-                scan_range.append(scan.ranges[i])
-
+        scan_range = self.process_scan(scan)
         obstacle_min_range = round(min(scan_range), 2)
         obstacle_angle = np.argmin(scan_range)
-        if min_range > min(scan_range) > 0:
-            done = True
+        done = self.check_done(scan_range)
 
-        current_distance = round(math.hypot(self.goal_x - self.position.x, self.goal_y - self.position.y),2)
+        current_distance = round(math.hypot(self.goal_x - self.position.x, self.goal_y - self.position.y), 2)
         if current_distance < 0.35:
             self.get_goalbox = True
 
-        return scan_range + [heading, current_distance, obstacle_min_range, obstacle_angle], done
+        return scan_range + [self.heading, current_distance, obstacle_min_range, obstacle_angle], done
+
+    def process_scan(self, scan):
+        scan_range = []
+        for range_val in scan.ranges:
+            if range_val == float('Inf'):
+                scan_range.append(3.5)
+            elif np.isnan(range_val):
+                scan_range.append(0)
+            else:
+                scan_range.append(range_val)
+        return scan_range
+
+    def check_done(self, scan_range):
+        min_range = 0.18
+        return min_range > min(scan_range) > 0
+    
 
     def setReward(self, state, done, action):
-        yaw_reward = []
         obstacle_min_range = state[-2]
         current_distance = state[-3]
         heading = state[-4]
 
-        rospy.logdebug("state")
-
-        rospy.logdebug(state)
-
-        for i in range(5):
-            angle = -pi / 4 + heading + (pi / 8 * i) + pi / 2
-            tr = 1 - 4 * math.fabs(0.5 - math.modf(0.25 + 0.5 * angle % (2 * math.pi) / math.pi)[0])
-            yaw_reward.append(tr)
+        yaw_reward = self.calculate_yaw_reward(heading)
 
         distance_rate = 2 ** (current_distance / self.goal_distance)
 
-        if obstacle_min_range < 0.5:
-            ob_reward = -5
-        else:
-            ob_reward = 0
+        ob_reward = -5 if obstacle_min_range < 0.5 else 0
 
-        reward = ((round(yaw_reward[action] * 5, 2)) * distance_rate) + ob_reward
+        reward = (yaw_reward[action] * 5 * distance_rate) + ob_reward
 
         if done:
-            rospy.loginfo("Collision!!")
             reward = -500
-            self.pub_cmd_vel.publish(Twist())
+            self.handle_collision()
 
         if self.get_goalbox:
-            rospy.loginfo("Goal!!")
             reward = 1000
-            self.pub_cmd_vel.publish(Twist())
-            self.goal_x, self.goal_y = self.respawn_goal.getPosition(True, delete=True)
-            self.goal_distance = self.getGoalDistace()
-            self.get_goalbox = False
+            self.handle_goal()
 
         return reward
+
+    def calculate_yaw_reward(self, heading):
+        yaw_reward = []
+        for i in range(5):
+            angle = -pi / 4 + heading + (pi / 8 * i) + pi / 2
+            tr = 1 - 4 * math.fabs(0.5 - math.modf(0.25 + 0.5 * angle % (2 * pi) / pi)[0])
+            yaw_reward.append(tr)
+        return yaw_reward
+
+    def handle_collision(self):
+        rospy.loginfo("Collision!!")
+        self.pub_cmd_vel.publish(Twist())
+
+    def handle_goal(self):
+        rospy.loginfo("Goal!!")
+        self.pub_cmd_vel.publish(Twist())
+        self.goal_x, self.goal_y = self.respawn_goal.getPosition(True, delete=True)
+        self.goal_distance = self.getGoalDistace()
+        self.get_goalbox = False
 
 
     def step(self, action):
