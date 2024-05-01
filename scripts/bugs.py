@@ -102,10 +102,16 @@ class Bugs():
         rospy.loginfo(log)
         rospy.loginfo(resp)
         return resp
+
+    def isclose(self, x, y, rel_tol):
+        if abs(x-y) <= rel_tol:
+            return True
+        else:
+            return False
     
     def target_reached(self):
-        if math.isclose(self.goal.x, self.position.x, rel_tol=0.3) \
-                and math.isclose(self.goal.y, self.position.y, rel_tol=0.3) \
+        if self.isclose(self.goal.x, self.position.x, rel_tol=0.3) \
+                and self.isclose(self.goal.y, self.position.y, rel_tol=0.3) \
                     and self.state_time_count > 5 and self.target_count == 0:
             self.goal_reached = True
             rospy.loginfo('Goal Reached')
@@ -113,8 +119,8 @@ class Bugs():
             self.reset_positions()
             rospy.loginfo('Position and goal reset')
             return True
-        elif math.isclose(self.goal.x, self.position.x, rel_tol=0.3) \
-                and math.isclose(self.goal.y, self.position.y, rel_tol=0.3) \
+        elif self.isclose(self.goal.x, self.position.x, rel_tol=0.3) \
+                and self.isclose(self.goal.y, self.position.y, rel_tol=0.3) \
                     and self.state_time_count > 5 and self.target_count == 1:
             self.home_reached = True
             rospy.loginfo('Looks like we made it')
@@ -344,9 +350,9 @@ class Bugs():
             if self.state == 0: # Go to goal
                 if self.scan['front'] > 0.15 and self.scan['front'] < 1:
                     resp = self.change_behaviour(1) # Following wall
-                # elif self.target_reached():
-                #     rospy.loginfo('Sending the homing signal from state 0')
-                #     self.send_homing_signal(3, 'Come home')
+                elif self.target_reached():
+                    rospy.loginfo('Sending the homing signal from state 0')
+                    self.send_homing_signal(3, 'Come home')
                 #     #resp = self.change_behaviour(0) # Go to goal
 
                     
@@ -357,9 +363,9 @@ class Bugs():
                     if self.log == 'true':
                         rospy.loginfo("Goal direction: [%.2f]", self.goal_yaw)
                     resp = self.change_behaviour(0) # Go to goal
-                    # if self.target_reached():
-                    #     rospy.loginfo('Sending the homing signal from state 1')
-                    #     self.send_homing_signal(3, 'Come home')
+                    if self.target_reached():
+                        rospy.loginfo('Sending the homing signal from state 1')
+                        self.send_homing_signal(3, 'Come home')
                     #     #resp = self.change_behaviour(0) # Go to goal
             
             self.loop_count = self.loop_count + 1
