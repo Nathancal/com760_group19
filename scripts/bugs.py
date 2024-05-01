@@ -29,7 +29,7 @@ class Bugs():
         self.closest_point = Point()
         self.go_to_goal = rospy.ServiceProxy('/go_to_point_switch', Com760Group19Status)
         self.follow_wall = rospy.ServiceProxy('/wall_follower_switch', Com760Group19Status)
-        self.homing_signal = rospy.Publisher("homing_signal", Com760Group19Custom, queue_size=10)
+        self.homing_signal = rospy.Publisher("homing_signal", Com760Group19Custom, queue_size=1)
         self.set_model_state = rospy.ServiceProxy('/gazebo/set_model_state', SetModelState)
         self.sub_scan = rospy.Subscriber('/group19Bot/laser/scan', LaserScan, self.callback_laser)
         self.sub_odom = rospy.Subscriber('/odom', Odometry, self.callback_odom)
@@ -47,6 +47,7 @@ class Bugs():
         self.goal.z = 0
         self.goal_yaw = 0
         self.goal_reached = False
+        self.home_reached = False
         self.scan = None
         self.description = ['Go to goal', 'following wall']
         self.state = 0
@@ -57,7 +58,8 @@ class Bugs():
         self.max_angular_velocity = 0.4  # Maximum angular velocity
         self.min_distance = 0.5  # Minimum distance to obstacles for full speed
         self.max_distance = 2.0  # Maximum distance to obstacles for no speed
-        self.log = True if rospy.get_param('log') == 'true' else False
+        self.log = rospy.get_param('log')
+        self.target_count = 0
 
     # callbacks
     def callback_odom(self, msg):
@@ -101,14 +103,45 @@ class Bugs():
         rospy.loginfo(resp)
         return resp
     
+    def target_reached(self):
+        if math.isclose(self.goal.x, self.position.x, rel_tol=0.3) \
+                and math.isclose(self.goal.y, self.position.y, rel_tol=0.3) \
+                    and self.state_time_count > 5 and self.target_count == 0:
+            self.goal_reached = True
+            rospy.loginfo('Goal Reached')
+            self.target_count +=1
+            self.reset_positions()
+            rospy.loginfo('Position and goal reset')
+            return True
+        elif math.isclose(self.goal.x, self.position.x, rel_tol=0.3) \
+                and math.isclose(self.goal.y, self.position.y, rel_tol=0.3) \
+                    and self.state_time_count > 5 and self.target_count == 1:
+            self.home_reached = True
+            rospy.loginfo('Looks like we made it')
+            self.target_count +=1
+            rospy.loginfo('Position and goal reset')
+            return True
+        else:
+            return False
+    
     def send_homing_signal(self, state, message='Come home'):
         # Blocks until registered with master
         msg = Com760Group19Custom()
         msg.state = state
-        msg.goal_x = self.initial.x  # i.e. initial.x   -> goal.x
-        msg.goal_y = self.initial.y  # i.e. initial.y   -> goal.y
+        msg.goal_x = self.initial.x   # i.e. initial.x   -> goal.x
+        msg.goal_y = self.initial.y # i.e. initial.y   -> goal.y
         msg.message = message
         self.homing_signal.publish(msg)
+    
+    def reset_positions(self):
+        x = self.initial.x 
+        y = self.initial.y
+        gx = self.goal.x
+        gy = self.goal.y
+        self.initial.x = gx
+        self.initial.y = gy
+        self.goal.x = x
+        self.goal.y = y
     
     def proportional_controller(self):
         # Porportional Controller
@@ -124,7 +157,7 @@ class Bugs():
         cmd_vel.angular.z = 6 * (math.atan2(self.goal.y - self.position.y, self.goal.x - self.position.x) - self.position.z) # z is theta? right?
 
         # Log the velocity
-        if self.log == True:
+        if self.log == 'true':
             log = {'Proportional controller cmd_vel': cmd_vel}
             rospy.loginfo(log)
         return cmd_vel
@@ -137,7 +170,7 @@ class Bugs():
         linear_x = min(max(linear_x, 0), self.max_linear_velocity)  # Clip velocity to [0, max_linear_velocity]
 
         # Log the velocity
-        if self.log == True:
+        if self.log == 'true':
             log = {'Scaled linear velocity': linear_x}
             rospy.loginfo(log)
 
@@ -153,7 +186,7 @@ class Bugs():
             angular_z = self.max_angular_velocity
 
         # Log the velocity
-        if self.log == True:
+        if self.log == 'true':
             log = {'Scaled angular velocity': angular_z}
             rospy.loginfo(log)
 
@@ -301,35 +334,39 @@ class Bugs():
         # initialize going to goal
         while self.scan == None:
                 continue
-        self.change_behaviour(0) # Go to goal
+        resp = self.change_behaviour(0) # Go to goal
         # TODO 'check this is needed'
-        # rospy.sleep(5)
-        while not rospy.is_shutdown() and not self.goal_reached:
+        rospy.sleep(5)
+        while not rospy.is_shutdown() and not self.home_reached:
 
             distance_position_to_line = self.distance_between_points()
 
             if self.state == 0: # Go to goal
                 if self.scan['front'] > 0.15 and self.scan['front'] < 1:
-                    self.change_behaviour(1) # Following wall
+                    resp = self.change_behaviour(1) # Following wall
+                # elif self.target_reached():
+                #     rospy.loginfo('Sending the homing signal from state 0')
+                #     self.send_homing_signal(3, 'Come home')
+                #     #resp = self.change_behaviour(0) # Go to goal
 
+                    
             elif self.state == 1: # Following wall
-                if self.state_time_count > 5 and \
-                distance_position_to_line < 0.1:
+                if self.state_time_count > 5 and distance_position_to_line < 0.1:
                     rospy.loginfo("Switching to tangent bug mode")
                     self.calculate_goal_yaw()
-                    if self.log == True:
+                    if self.log == 'true':
                         rospy.loginfo("Goal direction: [%.2f]", self.goal_yaw)
                     resp = self.change_behaviour(0) # Go to goal
-                    if (resp.success == True and abs(self.goal.x) < 0.3 \
-                        and abs(self.goal.y) < 0.3):
-                        rospy.loginfo('Sending the homing signal')
-                        # Send homing signal
-                        self.send_homing_signal(3, 'Come home')
-
+                    # if self.target_reached():
+                    #     rospy.loginfo('Sending the homing signal from state 1')
+                    #     self.send_homing_signal(3, 'Come home')
+                    #     #resp = self.change_behaviour(0) # Go to goal
+            
             self.loop_count = self.loop_count + 1
             if self.loop_count == 20:
                 self.state_time_count = self.state_time_count + 1
                 self.loop_count = 0
+            
             if self.log == True:
                 rospy.loginfo("distance to line: [%.2f], position: [%.2f, %.2f]", \
                             self.distance_between_points(), self.position.x, self.position.y)
@@ -344,7 +381,7 @@ class Bugs():
         elif self.algorithm == 'bug2':
             self.bug_two()
         else:
-            rospy.loginfo('Set the algorithm param in the bugs launch file')
+            rospy.loginfo('Set the algorithm param in the bugs launch file or launch command')
 
 if __name__ == '__main__':
     try:

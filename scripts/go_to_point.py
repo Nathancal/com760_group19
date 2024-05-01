@@ -32,6 +32,7 @@ class GoToPoint():
         self.goal.x = rospy.get_param('des_pos_x')
         self.goal.y = rospy.get_param('des_pos_y')
         self.goal.z = 0
+        self.goal_reached = False
         # parameters
         self.yaw_precision = math.pi / 90 # +/- 2 degree allowed
         self.dist_precision = 0.3
@@ -79,7 +80,7 @@ class GoToPoint():
             angle = angle - (2 * math.pi * angle) / (math.fabs(angle))
         return angle
 
-    def fix_heading(self, des_pos):
+    def fix_heading(self, des_pos, x_vel=False):
         desired_yaw = math.atan2(des_pos.y - self.position.y, des_pos.x - self.position.x)
         err_yaw = self.normalize_angle(desired_yaw - self.yaw)
         
@@ -120,11 +121,15 @@ class GoToPoint():
             self.update_state(0)
 
     def done(self):
-        cmd_vel = Twist()
-        cmd_vel.linear.x = 0
-        cmd_vel.angular.z = 0
-        self.cmd_pub.publish(cmd_vel)
-        rospy.loginfo('Published cmd_vel: [%s]' % self.cmd_vel)
+        if self.goal_reached:
+            cmd_vel = Twist()
+            cmd_vel.linear.x = 0
+            cmd_vel.angular.z = 0
+            self.cmd_pub.publish(cmd_vel)
+            rospy.loginfo('Published cmd_vel: [%s]' % cmd_vel)
+        else:
+            rospy.loginfo('First goal reached')
+            self.goal_reached = True
     def run(self):
         while not rospy.is_shutdown():
             if not self.active:
