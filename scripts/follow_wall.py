@@ -9,7 +9,6 @@ from nav_msgs.msg import Odometry
 from tf import transformations
 from std_srvs.srv import *
 from com760_group19.srv import Com760Group19Status, Com760Group19StatusResponse
-from com760_group19.msg import Com760Group19Custom
 
 import math
 
@@ -18,7 +17,6 @@ class WallFollower():
         rospy.init_node('Wall_follower')
         self.srv = rospy.Service('wall_follower_switch', Com760Group19Status, self.wall_follower_switch)
         self.scan_sub = rospy.Subscriber('/group19Bot/laser/scan', LaserScan, self.scan_callback)
-        # self.homing_signal = rospy.Subscriber('/homing_signal', Com760Group19Custom, self.homing_callback)
         self.cmd_pub = rospy.Publisher('/group19Bot/cmd_vel', Twist, queue_size=1)
         self.active = False
         self.state = 0
@@ -30,13 +28,6 @@ class WallFollower():
         self.res = Com760Group19StatusResponse()
         self.scan = []
         self.rate = rospy.Rate(20)
-    
-    # homing signal callback
-    # def homing_callback(self, msg):
-    #     rospy.loginfo(msg)
-    #     self.state = msg.state
-    #     self.goal = msg.goal
-    #     self.initial = msg.initial
 
     def wall_follower_switch(self, req):
         self.active = req.flag
@@ -174,9 +165,6 @@ class WallFollower():
             elif self.state == 2:
                 cmd_vel = self.follow_the_wall()
                 pass
-            # elif self.state == 3:
-            #     cmd_vel = self.find_wall()
-            #     pass
             else:
                 rospy.logerr('Unknown state!')
             self.cmd_pub.publish(cmd_vel)
