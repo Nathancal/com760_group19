@@ -2,8 +2,6 @@
 #################################################################################
 # Code based on file provided by Robotis https://github.com/ROBOTIS-GIT/turtlebot3_machine_learning/tree/master/turtlebot3_dqn
 
-
-
 import rospy
 import os
 import json
@@ -14,6 +12,7 @@ import sys
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 from collections import deque
 from std_msgs.msg import Float32MultiArray
+from com760_group19.msg import Group19DqnCustom, Group19DqnResultCustom # Import the custom message
 from src.dqn_env import Env
 from keras.models import Sequential, load_model
 from keras.optimizers import RMSprop
@@ -21,10 +20,10 @@ from keras.layers import Dense, Dropout, Activation
 
 EPS = 5000
 
-
 class ReinforceAgent():
     def __init__(self, state_size, action_size):
-        self.pub_result = rospy.Publisher('result', Float32MultiArray, queue_size=5)
+        self.pub_action_execution = rospy.Publisher('action_execution', Group19DqnCustom, queue_size=5)  # Using custom message
+        self.pub_result = rospy.Publisher('result', Group19DqnResultCustom, queue_size=5)  # Publish custom result message
         self.dirPath = os.path.dirname(os.path.realpath(__file__))
         self.dirPath = self.dirPath.replace('com760_group19/scripts', 'com760_group19/save/group19_')
         self.result = Float32MultiArray()
@@ -84,7 +83,6 @@ class ReinforceAgent():
 
         return model
     
-
     def getQvalue(self, reward, next_target, done):
         if done:
             return reward
@@ -143,10 +141,9 @@ class ReinforceAgent():
 
 if __name__ == '__main__':
     rospy.init_node('dqn_node')
-    pub_result = rospy.Publisher('result', Float32MultiArray, queue_size=5)
-    pub_get_action = rospy.Publisher('get_action', Float32MultiArray, queue_size=5)
-    result = Float32MultiArray()
-    get_action = Float32MultiArray()
+    pub_result = rospy.Publisher('result', Group19DqnResultCustom, queue_size=5)
+    pub_action_execution = rospy.Publisher('action_execution', Group19DqnCustom, queue_size=5)  # Using custom message
+    result = Group19DqnResultCustom()
 
     state_size = 28
     action_size = 5
@@ -178,8 +175,13 @@ if __name__ == '__main__':
 
                 score += reward
                 state = next_state
-                get_action.data = [action, score, reward]
-                pub_get_action.publish(get_action)
+                
+                # Publishing action execution
+                action_execution_msg = Group19DqnCustom()
+                action_execution_msg.action = action
+                action_execution_msg.score = score
+                action_execution_msg.reward = reward
+                pub_action_execution.publish(action_execution_msg)
 
                 if e % 10 == 0:
                     agent.model.save(agent.dirPath + str(e) + '.h5')
@@ -187,11 +189,12 @@ if __name__ == '__main__':
                         json.dump(param_dictionary, outfile)
 
                 if t >= 400:
-                    rospy.loginfo("group19Bot took to long..")
+                    rospy.loginfo("group19Bot took too long..")
                     done = True
 
                 if done:
-                    result.data = [score, np.max(agent.q_value)]
+                    result.score = score
+                    result.max_q_value = np.max(agent.q_value)
                     pub_result.publish(result)
                     agent.updateTargetModel()
                     scores.append(score)
