@@ -138,6 +138,7 @@ class Bugs():
         msg.goal_y = self.initial.y # i.e. initial.y   -> goal.y
         msg.message = message
         self.homing_signal.publish(msg)
+        rospy.loginfo('Homing message sent')
     
     def reset_positions(self):
         x = self.initial.x 
@@ -342,7 +343,7 @@ class Bugs():
                 continue
         resp = self.change_behaviour(0) # Go to goal
         # TODO 'check this is needed'
-        rospy.sleep(5)
+        # rospy.sleep(5)
         while not rospy.is_shutdown() and not self.home_reached:
 
             distance_position_to_line = self.distance_between_points()
@@ -353,11 +354,11 @@ class Bugs():
                 elif self.target_reached():
                     rospy.loginfo('Sending the homing signal from state 0')
                     self.send_homing_signal(3, 'Come home')
-                #     #resp = self.change_behaviour(0) # Go to goal
+                    resp = self.change_behaviour(0) # Go to goal
 
                     
             elif self.state == 1: # Following wall
-                if self.state_time_count > 5 and distance_position_to_line < 0.1:
+                if self.state_time_count > 5 and distance_position_to_line <= 0.3:
                     rospy.loginfo("Switching to tangent bug mode")
                     self.calculate_goal_yaw()
                     if self.log == 'true':
@@ -366,7 +367,7 @@ class Bugs():
                     if self.target_reached():
                         rospy.loginfo('Sending the homing signal from state 1')
                         self.send_homing_signal(3, 'Come home')
-                    #     #resp = self.change_behaviour(0) # Go to goal
+                        resp = self.change_behaviour(0) # Go to goal
             
             self.loop_count = self.loop_count + 1
             if self.loop_count == 20:

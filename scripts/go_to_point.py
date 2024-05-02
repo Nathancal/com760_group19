@@ -43,6 +43,7 @@ class GoToPoint():
     # homing signal callback
     def homing_callback(self, msg):
         rospy.loginfo(msg)
+        self.active = True
         self.state = msg.state
         self.goal.x = msg.goal_x
         self.goal.y = msg.goal_y
@@ -80,7 +81,7 @@ class GoToPoint():
             angle = angle - (2 * math.pi * angle) / (math.fabs(angle))
         return angle
 
-    def fix_heading(self, des_pos, x_vel=False):
+    def fix_heading(self, des_pos):
         desired_yaw = math.atan2(des_pos.y - self.position.y, des_pos.x - self.position.x)
         err_yaw = self.normalize_angle(desired_yaw - self.yaw)
         
@@ -91,9 +92,8 @@ class GoToPoint():
 
         if math.fabs(err_yaw) > self.yaw_precision:
             cmd_vel.angular.z = 0.7 if err_yaw > 0 else -0.7
-            
-        self.cmd_pub.publish(cmd_vel)
-        rospy.loginfo('Published cmd_vel: [%s]' % cmd_vel)
+            self.cmd_pub.publish(cmd_vel)
+            rospy.loginfo('Published cmd_vel: [%s]' % cmd_vel)
         
         # When yaw error is less than yaw precision
         if math.fabs(err_yaw) <= self.yaw_precision:
@@ -105,7 +105,7 @@ class GoToPoint():
         err_yaw = desired_yaw - self.yaw
         err_pos = math.sqrt(pow(des_pos.y - self.position.y, 2) + pow(des_pos.x - self.position.x, 2))
         
-        if err_pos > self.dist_precision:
+        if err_pos >= self.dist_precision:
             cmd_vel = Twist()
             cmd_vel.linear.x = 0.6
             cmd_vel.angular.z = 0.2 if err_yaw > 0 else -0.2
@@ -121,15 +121,18 @@ class GoToPoint():
             self.update_state(0)
 
     def done(self):
-        if self.goal_reached:
+        if not self.goal_reached:
+            rospy.loginfo('First goal reached')
+            self.goal_reached = True
+            self.active = False
+        elif self.goal_reached:
             cmd_vel = Twist()
-            cmd_vel.linear.x = 0
+            cmd_vel.linear.x = 0.2
             cmd_vel.angular.z = 0
             self.cmd_pub.publish(cmd_vel)
             rospy.loginfo('Published cmd_vel: [%s]' % cmd_vel)
-        else:
-            rospy.loginfo('First goal reached')
-            self.goal_reached = True
+            self.active = False
+    
     def run(self):
         while not rospy.is_shutdown():
             if not self.active:
