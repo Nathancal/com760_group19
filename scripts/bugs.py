@@ -84,6 +84,12 @@ class Bugs():
             'left':   min(min(msg.ranges[576:719]), 10),
         }
 
+    def set_linear_velocity(self):
+        return 0.1
+    
+    def set_angular_velocity(self):
+        return 0.1
+
     def change_behaviour(self, state):
         self.state_time_count = 0
         self.state = state

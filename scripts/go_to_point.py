@@ -132,7 +132,7 @@ class GoToPoint():
     def done(self):
         if self.goal_reached:
             cmd_vel = Twist()
-            cmd_vel.linear.x = 0
+            cmd_vel.linear.x = 0.2
             cmd_vel.angular.z = 0
             self.cmd_pub.publish(cmd_vel)
             if self.log == 'true':
