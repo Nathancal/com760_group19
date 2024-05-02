@@ -1,4 +1,8 @@
 #!/usr/bin/env python
+#################################################################################
+# Code based on file provided by Robotis https://github.com/ROBOTIS-GIT/turtlebot3_machine_learning/tree/master/turtlebot3_dqn
+
+
 
 import rospy
 import os
