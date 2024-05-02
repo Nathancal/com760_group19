@@ -144,7 +144,6 @@ class GoToPoint():
                 self.goal_reached = True
                 self.goal.x = self.message.goal_x
                 self.goal.y = self.message.goal_y
-                rospy.sleep(5)
                 self.update_state(self.message.state)
             except Exception as e:
                 rospy.loginfo('Something failed: [%s]' %e)

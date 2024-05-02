@@ -169,36 +169,6 @@ class Bugs():
             rospy.loginfo(log)
         return cmd_vel
 
-    def set_linear_velocity(self):
-        linear_x = 0
-        # Set linear velocity based on distance to obstacles
-        linear_x = self.max_linear_velocity * (self.scan['front'] - self.min_distance) \
-            / (self.max_distance - self.min_distance)
-        linear_x = min(max(linear_x, 0), self.max_linear_velocity)  # Clip velocity to [0, max_linear_velocity]
-
-        # Log the velocity
-        if self.log == 'true':
-            log = {'Scaled linear velocity': linear_x}
-            rospy.loginfo(log)
-
-        return linear_x
-    
-    def set_angular_velocity(self):
-        angular_z = 0
-
-        # Set angular velocity based on the difference between front and side distances
-        if self.scan['front_left'] > self.scan['front_right']:
-            angular_z = -self.max_angular_velocity
-        else:
-            angular_z = self.max_angular_velocity
-
-        # Log the velocity
-        if self.log == 'true':
-            log = {'Scaled angular velocity': angular_z}
-            rospy.loginfo(log)
-
-        return angular_z
-
     def distance_between_points(self):
         # p0 is the current position
         # p1 and p2 points define the line
