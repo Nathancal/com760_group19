@@ -133,6 +133,8 @@ class DQNEnv():
         while data is None:
             try:
                 data = rospy.wait_for_message('group19Bot/laser/scan', LaserScan, timeout=5)
+                rospy.logdebug("outputs laser data")
+                rospy.logdebug(data)
             except:
                 pass
 

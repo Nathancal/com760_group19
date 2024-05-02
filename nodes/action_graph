@@ -17,7 +17,7 @@
 
 import rospy
 import sys
-from std_msgs.msg import Float32MultiArray, Float32
+from com760_group19.msg import Group19DqnCustom
 from PyQt5.QtWidgets import *
 from PyQt5.QtWidgets import QProgressBar
 from PyQt5.QtWidgets import QApplication
@@ -43,14 +43,12 @@ class Thread(QThread):
         self.mutex = QMutex()
         self.cnt = 0
         self._status = True
-        self.sub = rospy.Subscriber("get_action", Float32MultiArray, self.get_array)
+        self.sub = rospy.Subscriber("get_action", Group19DqnCustom, self.get_array)
 
-    def get_array(self, array):
-        data = []
-        self.array = array
-        self.array.data = list(self.array.data)
-        for i in self.array.data[:-2]:
-            data.append(float(i * 100))
+    def get_array(self, custom_action):
+        action = int(custom_action.action)  # Convert action to int if needed
+        score = custom_action.score
+        reward = custom_action.reward
 
         self.change_value1.emit(0)
         self.change_value2.emit(0)
@@ -58,19 +56,20 @@ class Thread(QThread):
         self.change_value4.emit(0)
         self.change_value5.emit(0)
 
-        if self.array.data[0] == 0:
+        if action == 0:
             self.change_value1.emit(100)
-        elif self.array.data[0] == 1:
+        elif action == 1:
             self.change_value2.emit(100)
-        elif self.array.data[0] == 2:
+        elif action == 2:
             self.change_value3.emit(100)
-        elif self.array.data[0] == 3:
+        elif action == 3:
             self.change_value4.emit(100)
-        elif self.array.data[0] == 4:
+        elif action == 4:
             self.change_value5.emit(100)
 
-        self.change_value6.emit(str(round(self.array.data[-2], 2)))
-        self.change_value7.emit(str(round(self.array.data[-1], 2)))
+        self.change_value6.emit(str(round(score, 2)))
+        self.change_value7.emit(str(round(reward, 2)))
+
 
 class Form(QWidget):
     def __init__(self):

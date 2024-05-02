@@ -211,6 +211,7 @@ if __name__ == '__main__':
 
                 global_step += 1
                 if global_step % agent.target_update == 0:
+                    agent.updateTargetModel()
                     rospy.loginfo("UPDATE TARGET NETWORK")
 
             if agent.epsilon > agent.epsilon_min:
