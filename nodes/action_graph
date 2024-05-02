@@ -43,7 +43,7 @@ class Thread(QThread):
         self.mutex = QMutex()
         self.cnt = 0
         self._status = True
-        self.sub = rospy.Subscriber("get_action", Group19DqnCustom, self.get_array)
+        self.sub = rospy.Subscriber("action_execution", Group19DqnCustom, self.get_array)
 
     def get_array(self, custom_action):
         action = int(custom_action.action)  # Convert action to int if needed
