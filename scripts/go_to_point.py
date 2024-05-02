@@ -132,7 +132,7 @@ class GoToPoint():
     def done(self):
         if self.goal_reached:
             cmd_vel = Twist()
-            cmd_vel.linear.x = 0.2
+            cmd_vel.linear.x = 0
             cmd_vel.angular.z = 0
             self.cmd_pub.publish(cmd_vel)
             if self.log == 'true':
@@ -144,6 +144,7 @@ class GoToPoint():
                 self.goal_reached = True
                 self.goal.x = self.message.goal_x
                 self.goal.y = self.message.goal_y
+                rospy.sleep(5)
                 self.update_state(self.message.state)
             except Exception as e:
                 rospy.loginfo('Something failed: [%s]' %e)
