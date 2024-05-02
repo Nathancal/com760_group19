@@ -16,6 +16,6 @@
     <param name="des_pos_x" value="$(arg des_x)" />
     <param name="des_pos_y" value="$(arg des_y)" />
     <node pkg="com760_group19" type="follow_wall.py" name="wall_follower" />
-    <node pkg="com760_group19" type="go_to_point.py" name="go_to_point" />
+    <node pkg="com760_group19" type="go_to_point.py" name="go_to_point" output="screen"/>
     <node pkg="com760_group19" type="bugs.py" name="bugs" output="screen" />
 </launch>

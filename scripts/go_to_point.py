@@ -39,13 +39,17 @@ class GoToPoint():
         self.start_time = rospy.Time.now()
         self.timeout = rospy.Duration(10)
         self.rate = rospy.Rate(20)
+        self.message = Com760Group19Custom()
+        self.log = rospy.get_param('log')
 
     # homing signal callback
     def homing_callback(self, msg):
-        rospy.loginfo(msg)
-        self.state = msg.state
-        self.goal.x = msg.goal_x
-        self.goal.y = msg.goal_y
+        rospy.loginfo('Message recieved')
+        rospy.loginfo(msg.message)
+        self.message = msg
+        resp = Com760Group19Custom()
+        resp.message = 'Okay, On my way!'
+        return resp
 
     # service callbacks
     def go_to_point_switch(self, req):
@@ -69,7 +73,8 @@ class GoToPoint():
             msg.pose.pose.orientation.w)
         euler = transformations.euler_from_quaternion(quaternion)
         self.yaw = euler[2]
-        rospy.loginfo('Orientaton for position.z is [%s]' % self.yaw)
+        if self.log == 'true':
+            rospy.loginfo('Orientaton for position.z is [%s]' % self.yaw)
 
     def update_state(self, state):
         self.state = state
@@ -80,20 +85,21 @@ class GoToPoint():
             angle = angle - (2 * math.pi * angle) / (math.fabs(angle))
         return angle
 
-    def fix_heading(self, des_pos, x_vel=False):
+    def fix_heading(self, des_pos):
         desired_yaw = math.atan2(des_pos.y - self.position.y, des_pos.x - self.position.x)
         err_yaw = self.normalize_angle(desired_yaw - self.yaw)
         
-        rospy.loginfo('Desired yaw is [%s]' % desired_yaw)
-        rospy.loginfo('Error yaw is [%s]' % err_yaw)
+        if self.log == 'true':
+            rospy.loginfo('Desired yaw is [%s]' % desired_yaw)
+            rospy.loginfo('Error yaw is [%s]' % err_yaw)
         
         cmd_vel = Twist()
 
         if math.fabs(err_yaw) > self.yaw_precision:
             cmd_vel.angular.z = 0.7 if err_yaw > 0 else -0.7
-            
-        self.cmd_pub.publish(cmd_vel)
-        rospy.loginfo('Published cmd_vel: [%s]' % cmd_vel)
+            self.cmd_pub.publish(cmd_vel)
+            if self.log == 'true':
+                rospy.loginfo('Published cmd_vel: [%s]' % cmd_vel)
         
         # When yaw error is less than yaw precision
         if math.fabs(err_yaw) <= self.yaw_precision:
@@ -105,19 +111,22 @@ class GoToPoint():
         err_yaw = desired_yaw - self.yaw
         err_pos = math.sqrt(pow(des_pos.y - self.position.y, 2) + pow(des_pos.x - self.position.x, 2))
         
-        if err_pos > self.dist_precision:
+        if err_pos >= self.dist_precision:
             cmd_vel = Twist()
             cmd_vel.linear.x = 0.6
             cmd_vel.angular.z = 0.2 if err_yaw > 0 else -0.2
             self.cmd_pub.publish(cmd_vel)
-            rospy.loginfo('Published cmd_vel: [%s]' % cmd_vel)
+            if self.log == 'true':
+                rospy.loginfo('Published cmd_vel: [%s]' % cmd_vel)
         else:
-            rospy.loginfo('Position error: [%s]' % err_pos)
+            if self.log == 'true':
+                rospy.loginfo('Position error: [%s]' % err_pos)
             self.update_state(2)
         
         # state change conditions
         if math.fabs(err_yaw) > self.yaw_precision:
-            rospy.loginfo('Yaw error: [%s]' % err_yaw)
+            if self.log == 'true':
+                rospy.loginfo('Yaw error: [%s]' % err_yaw)
             self.update_state(0)
 
     def done(self):
@@ -126,10 +135,20 @@ class GoToPoint():
             cmd_vel.linear.x = 0
             cmd_vel.angular.z = 0
             self.cmd_pub.publish(cmd_vel)
-            rospy.loginfo('Published cmd_vel: [%s]' % cmd_vel)
-        else:
+            if self.log == 'true':
+                rospy.loginfo('Published cmd_vel: [%s]' % cmd_vel)
+        if not self.goal_reached:
             rospy.loginfo('First goal reached')
-            self.goal_reached = True
+            rospy.loginfo('HURRAH, WE DID IT YAY!......Goal Rerached')
+            try:
+                self.goal_reached = True
+                self.goal.x = self.message.goal_x
+                self.goal.y = self.message.goal_y
+                rospy.sleep(5)
+                self.update_state(self.message.state)
+            except Exception as e:
+                rospy.loginfo('Something failed: [%s]' %e)
+    
     def run(self):
         while not rospy.is_shutdown():
             if not self.active:
@@ -140,7 +159,6 @@ class GoToPoint():
                 elif self.state == 1: # Go straight
                     self.go_straight(self.goal)
                 elif self.state == 2: # Goal reached
-                    rospy.loginfo('HURRAH, WE DID IT YAY!')
                     self.done()
                 elif self.state == 3: # Go home
                     rospy.loginfo('Making the journey home')
