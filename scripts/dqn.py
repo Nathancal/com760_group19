@@ -13,14 +13,14 @@ sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 from collections import deque
 from std_msgs.msg import Float32MultiArray
 from com760_group19.msg import Group19DqnCustom, Group19DqnResultCustom # Import the custom message
-from src.dqn_env import Env
+from src.dqn_env import DQNEnv
 from keras.models import Sequential, load_model
 from keras.optimizers import RMSprop
 from keras.layers import Dense, Dropout, Activation
 
 EPS = 5000
 
-class ReinforceAgent():
+class DQNAgent():
     def __init__(self, state_size, action_size):
         self.pub_action_execution = rospy.Publisher('action_execution', Group19DqnCustom, queue_size=5)  # Using custom message
         self.pub_result = rospy.Publisher('result', Group19DqnResultCustom, queue_size=5)  # Publish custom result message
@@ -148,9 +148,9 @@ if __name__ == '__main__':
     state_size = 28
     action_size = 5
 
-    env = Env(action_size)
+    env = DQNEnv(action_size)
 
-    agent = ReinforceAgent(state_size, action_size)
+    agent = DQNAgent(state_size, action_size)
     scores, episodes = [], []
     global_step = 0
     start_time = time.time()
@@ -163,7 +163,7 @@ if __name__ == '__main__':
             for t in range(agent.episode_step):
                 action = agent.getAction(state)
 
-                next_state, reward, done = env.step(action)
+                next_state, reward, done = env.move_robot(action)
 
                 agent.appendMemory(state, action, reward, next_state, done)
 

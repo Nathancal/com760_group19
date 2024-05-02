@@ -14,7 +14,7 @@ from std_srvs.srv import Empty
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 from respawnGoal import Respawn
 
-class Env():
+class DQNEnv():
     def __init__(self, action_size):
         self.goal_x = 0
         self.goal_y = 0
@@ -120,7 +120,7 @@ class Env():
         return reward
 
 
-    def step(self, action):
+    def move_robot(self, action):
         max_angular_vel = 1.5
         ang_vel = ((self.action_size - 1)/2 - action) * max_angular_vel * 0.5
 
@@ -132,7 +132,7 @@ class Env():
         data = None
         while data is None:
             try:
-                data = rospy.wait_for_message('group19Bot/scan', LaserScan, timeout=5)
+                data = rospy.wait_for_message('group19Bot/laser/scan', LaserScan, timeout=5)
             except:
                 pass
 
@@ -151,7 +151,7 @@ class Env():
         data = None
         while data is None:
             try:
-                data = rospy.wait_for_message('group19Bot/scan', LaserScan, timeout=5)
+                data = rospy.wait_for_message('group19Bot/laser/scan', LaserScan, timeout=5)
             except:
                 pass
 
